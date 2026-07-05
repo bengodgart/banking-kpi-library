@@ -1,0 +1,17 @@
+# dependencies (this project has none, but guard against accidents)
+node_modules/
+# build output
+dist/
+.next/
+# os / editor
+.DS_Store
+Thumbs.db
+*.log
+# local env
+.env
+.env.*
+
+# GTM / portfolio-internal assets (not for the public repo)
+posts/
+publish-guide.html
+PRD.md

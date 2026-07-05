@@ -1,0 +1,515 @@
+{
+  "meta": {
+    "title": "Banking & Financial Services KPI Library",
+    "version": "1.0",
+    "count": 31,
+    "verification_note": "Formulas below are the standard, widely published definitions used across banking analytics (regulatory ratios follow Basel III / US call-report conventions). Where an institution may define a metric differently, the gotchas call it out. Two KPIs (Net Interest Margin and Efficiency Ratio) are hand-verified against worked examples in the repository README.",
+    "standard_vs_institutional": "Regulatory ratios (CET1, Tier 1, LCR, NSFR, Leverage) are standardized by Basel III and are not open to interpretation. Profitability, efficiency, and customer metrics vary in practice; the exact numerator/denominator a given bank uses can differ (for example, whether average or period-end balances are used). Treat the formulas as the common baseline and confirm against the institution's own metric definitions before reporting."
+  },
+  "categories": [
+    { "id": "profitability", "label": "Profitability" },
+    { "id": "efficiency", "label": "Efficiency" },
+    { "id": "risk", "label": "Risk & Credit Quality" },
+    { "id": "capital", "label": "Capital Adequacy" },
+    { "id": "liquidity", "label": "Liquidity & Funding" },
+    { "id": "growth", "label": "Growth & Customer" }
+  ],
+  "kpis": [
+    {
+      "id": "nim",
+      "name": "Net Interest Margin (NIM)",
+      "category": "profitability",
+      "definition": "How much a bank earns on its lending and investing after paying for the funds, expressed as a percentage of the assets that actually earn interest. It is the core measure of how profitable the bank's spread business is.",
+      "formula": "(Interest Income - Interest Expense) / Average Earning Assets",
+      "numerator": "Net interest income = total interest income (loans, securities) minus total interest expense (deposits, borrowings), from the income statement.",
+      "denominator": "Average interest-earning assets over the period (loans, investment securities, interest-bearing balances); average the opening and closing balances, do not use total assets.",
+      "gotchas": [
+        "Use average EARNING assets, not average total assets. Dividing by total assets understates NIM because non-earning assets (premises, goodwill, cash in vault) are in the base.",
+        "Annualize if the period is a quarter: multiply a single-quarter net interest income by 4 (or use days/365) before dividing, or the ratio looks four times too small."
+      ],
+      "benchmark": "Roughly 2.5% to 4% for US commercial banks; community banks often sit higher (3.5%+), large money-center banks lower.",
+      "source": "Federal Reserve / FDIC call report conventions; Investopedia 'Net Interest Margin'.",
+      "sql": "SELECT (interest_income - interest_expense) / ((earning_assets_begin + earning_assets_end) / 2.0) AS nim FROM period_financials;"
+    },
+    {
+      "id": "roa",
+      "name": "Return on Assets (ROA)",
+      "category": "profitability",
+      "definition": "How much profit the bank generates for every dollar of assets it holds. It measures how efficiently the balance sheet is being used to produce earnings.",
+      "formula": "Net Income / Average Total Assets",
+      "numerator": "Net income after tax for the period, from the income statement.",
+      "denominator": "Average total assets = (beginning total assets + ending total assets) / 2.",
+      "gotchas": [
+        "Banks are highly leveraged, so bank ROA looks small next to other industries; 1% is healthy for a bank, not weak.",
+        "Use average assets, not period-end, when assets grew or shrank materially during the period, or the ratio is distorted."
+      ],
+      "benchmark": "About 1% is considered strong for a US bank; below 0.5% is weak.",
+      "source": "FDIC Quarterly Banking Profile; standard financial-statement analysis.",
+      "sql": "SELECT net_income / ((total_assets_begin + total_assets_end) / 2.0) AS roa FROM period_financials;"
+    },
+    {
+      "id": "roe",
+      "name": "Return on Equity (ROE)",
+      "category": "profitability",
+      "definition": "The return the bank earns on shareholders' invested capital. It is the headline profitability figure investors watch because it ties earnings to the equity they put at risk.",
+      "formula": "Net Income / Average Shareholders' Equity",
+      "numerator": "Net income after tax for the period.",
+      "denominator": "Average common shareholders' equity = (beginning equity + ending equity) / 2.",
+      "gotchas": [
+        "High ROE can come from high leverage rather than strong operations; always read it alongside the capital ratios, or a thinly capitalized bank looks artificially excellent.",
+        "Use equity attributable to common shareholders (strip preferred stock) when computing return to common holders."
+      ],
+      "benchmark": "Roughly 10% to 15% is a common healthy range for banks; sustained double digits is the target.",
+      "source": "Standard financial analysis; FDIC Quarterly Banking Profile.",
+      "sql": "SELECT net_income / ((equity_begin + equity_end) / 2.0) AS roe FROM period_financials;"
+    },
+    {
+      "id": "net_interest_spread",
+      "name": "Net Interest Spread",
+      "category": "profitability",
+      "definition": "The gap between the average rate the bank earns on assets and the average rate it pays on funding, ignoring the volume of each. It isolates pricing power from balance-sheet mix.",
+      "formula": "Average Yield on Earning Assets - Average Rate Paid on Interest-Bearing Liabilities",
+      "numerator": "Not a fraction: it is the difference of two rates.",
+      "denominator": "Not applicable.",
+      "gotchas": [
+        "Spread differs from NIM: NIM divides by earning assets and so is affected by non-interest-bearing funding (like free checking), which lifts NIM above the spread.",
+        "Both rates must be computed on the same period and annualization basis or the difference is meaningless."
+      ],
+      "benchmark": "Typically slightly below the bank's NIM; a widening gap between spread and NIM signals more free/low-cost funding.",
+      "source": "Bank asset-liability management texts; OCC handbook.",
+      "sql": "SELECT yield_on_earning_assets - rate_on_ib_liabilities AS net_interest_spread FROM period_financials;"
+    },
+    {
+      "id": "cost_of_funds",
+      "name": "Cost of Funds",
+      "category": "profitability",
+      "definition": "The average interest rate the bank pays to obtain the money it lends and invests. Lower cost of funds is a durable competitive advantage.",
+      "formula": "Interest Expense / Average Interest-Bearing Liabilities",
+      "numerator": "Total interest expense on deposits and borrowings for the period.",
+      "denominator": "Average interest-bearing liabilities (interest-bearing deposits, wholesale funding, borrowings).",
+      "gotchas": [
+        "Cost of funds (interest-bearing base) differs from cost of deposits (all deposits) and from all-in funding cost; state which base you used.",
+        "Non-interest-bearing deposits are excluded from the denominator here, which is why a deposit-rich bank's cost of funds can be very low."
+      ],
+      "benchmark": "Rate-environment dependent; the key signal is the trend and the gap versus peers, not an absolute number.",
+      "source": "Bank ALM conventions; FDIC.",
+      "sql": "SELECT interest_expense / ((ib_liabilities_begin + ib_liabilities_end) / 2.0) AS cost_of_funds FROM period_financials;"
+    },
+    {
+      "id": "yield_earning_assets",
+      "name": "Yield on Earning Assets",
+      "category": "profitability",
+      "definition": "The average interest rate the bank earns across all of its interest-earning assets. It is the revenue side of the spread business.",
+      "formula": "Interest Income / Average Earning Assets",
+      "numerator": "Total interest income from loans and securities for the period.",
+      "denominator": "Average interest-earning assets over the period.",
+      "gotchas": [
+        "Include tax-equivalent adjustment for tax-exempt securities if comparing to peers who report on a taxable-equivalent (TE) basis, or municipal-heavy banks look under-yielding.",
+        "Annualize sub-annual periods before comparing."
+      ],
+      "benchmark": "Moves with market rates; compare to cost of funds to derive spread.",
+      "source": "Bank ALM conventions.",
+      "sql": "SELECT interest_income / ((earning_assets_begin + earning_assets_end) / 2.0) AS yield_on_earning_assets FROM period_financials;"
+    },
+    {
+      "id": "noninterest_income_ratio",
+      "name": "Non-Interest Income Ratio",
+      "category": "profitability",
+      "definition": "The share of the bank's total revenue that comes from fees and services rather than from interest. A higher share means revenue is less exposed to interest-rate swings.",
+      "formula": "Non-Interest Income / (Net Interest Income + Non-Interest Income)",
+      "numerator": "Non-interest income: service charges, card and interchange fees, wealth management, trading, gains on sale.",
+      "denominator": "Total revenue = net interest income plus non-interest income.",
+      "gotchas": [
+        "Some definitions use total interest income (gross) in the denominator instead of net interest income; the net-interest-income base is more common for a fee-mix read, so state the base.",
+        "One-time gains (securities sales) can inflate the ratio in a single period; strip or flag them for a clean trend."
+      ],
+      "benchmark": "Commonly 25% to 40% of revenue at diversified banks; higher at fee-driven and wealth-heavy institutions.",
+      "source": "FDIC Quarterly Banking Profile; bank 10-K MD&A.",
+      "sql": "SELECT noninterest_income / (net_interest_income + noninterest_income) AS noninterest_income_ratio FROM period_financials;"
+    },
+    {
+      "id": "ppnr",
+      "name": "Pre-Provision Net Revenue (PPNR)",
+      "category": "profitability",
+      "definition": "The bank's core earnings power before it sets aside money for expected loan losses. It shows underlying profitability stripped of the credit cycle, which is why stress tests center on it.",
+      "formula": "(Net Interest Income + Non-Interest Income) - Non-Interest Expense",
+      "numerator": "Not a ratio: total revenue (net interest income plus non-interest income) minus operating (non-interest) expense.",
+      "denominator": "Not applicable; PPNR is a dollar figure.",
+      "gotchas": [
+        "PPNR deliberately excludes the loan-loss provision and taxes; do not subtract provisions or you have double-counted the credit cost.",
+        "Used heavily in CCAR/DFAST stress testing; make sure the revenue and expense definitions match the regulatory template when reporting for that purpose."
+      ],
+      "benchmark": "No single ratio benchmark; track the trend and PPNR as a percentage of average assets for comparability.",
+      "source": "Federal Reserve CCAR/DFAST methodology.",
+      "sql": "SELECT (net_interest_income + noninterest_income) - noninterest_expense AS ppnr FROM period_financials;"
+    },
+    {
+      "id": "efficiency_ratio",
+      "name": "Efficiency Ratio (Cost-to-Income)",
+      "category": "efficiency",
+      "definition": "How many cents the bank spends in operating costs to generate one dollar of revenue. Lower is better, and it is the single most watched cost-discipline metric in banking.",
+      "formula": "Non-Interest Expense / (Net Interest Income + Non-Interest Income)",
+      "numerator": "Non-interest (operating) expense: salaries, occupancy, technology, marketing.",
+      "denominator": "Total revenue = net interest income plus non-interest income (often net of interest expense; sometimes revenue is shown taxable-equivalent).",
+      "gotchas": [
+        "Lower is better, the opposite direction from most ratios; a rising efficiency ratio is bad news.",
+        "Banks differ on whether to net securities gains/losses, amortization of intangibles, or restructuring charges out of the numerator; an 'adjusted' efficiency ratio can differ meaningfully from the reported one, so confirm the definition."
+      ],
+      "benchmark": "Around 50% to 60% is typical; below 50% is considered very efficient; above 70% signals a cost problem.",
+      "source": "FDIC; bank 10-K disclosures; commonly cited industry rule of thumb.",
+      "sql": "SELECT noninterest_expense / (net_interest_income + noninterest_income) AS efficiency_ratio FROM period_financials;"
+    },
+    {
+      "id": "opex_ratio",
+      "name": "Operating Expense Ratio (Overhead Ratio)",
+      "category": "efficiency",
+      "definition": "Operating costs measured against the size of the balance sheet. It shows how expensive the bank is to run per dollar of assets, independent of revenue.",
+      "formula": "Non-Interest Expense / Average Total Assets",
+      "numerator": "Non-interest (operating) expense for the period.",
+      "denominator": "Average total assets.",
+      "gotchas": [
+        "Unlike the efficiency ratio, this ignores revenue, so a high-revenue bank and a low-revenue bank with the same cost base look identical here; read the two together.",
+        "Annualize for sub-annual periods."
+      ],
+      "benchmark": "Often 2% to 3% of assets; trending down over time indicates scale benefits.",
+      "source": "FDIC; bank financial analysis.",
+      "sql": "SELECT noninterest_expense / ((total_assets_begin + total_assets_end) / 2.0) AS operating_expense_ratio FROM period_financials;"
+    },
+    {
+      "id": "revenue_per_employee",
+      "name": "Revenue per Employee",
+      "category": "efficiency",
+      "definition": "Total revenue divided by headcount, a rough measure of workforce productivity and how much technology and scale are leveraging each person.",
+      "formula": "Total Revenue / Average Number of Full-Time-Equivalent Employees",
+      "numerator": "Total revenue (net interest income plus non-interest income) for the period.",
+      "denominator": "Average full-time-equivalent (FTE) headcount over the period.",
+      "gotchas": [
+        "Use FTE, not raw headcount, or heavy part-time staffing distorts the figure.",
+        "Outsourcing and contractors are usually excluded from FTE, which can flatter a bank that offshores operations; note the staffing model."
+      ],
+      "benchmark": "Highly bank-specific; useful mainly as a trend and versus close peers.",
+      "source": "Bank 10-K employee disclosures; standard productivity analysis.",
+      "sql": "SELECT total_revenue / avg_fte_headcount AS revenue_per_employee FROM period_financials;"
+    },
+    {
+      "id": "assets_per_employee",
+      "name": "Assets per Employee",
+      "category": "efficiency",
+      "definition": "Total assets divided by headcount, a scale and automation indicator. Digitally efficient banks manage more assets per person.",
+      "formula": "Average Total Assets / Average Number of Full-Time-Equivalent Employees",
+      "numerator": "Average total assets.",
+      "denominator": "Average FTE headcount.",
+      "gotchas": [
+        "A high figure is not automatically good; it can reflect a thin-margin, low-touch book rather than genuine efficiency, so pair with revenue per employee.",
+        "Business mix matters: a wholesale/treasury bank naturally shows far more assets per head than a branch-heavy retail bank."
+      ],
+      "benchmark": "Business-model dependent; compare only within a peer group.",
+      "source": "Bank 10-K disclosures.",
+      "sql": "SELECT avg_total_assets / avg_fte_headcount AS assets_per_employee FROM period_financials;"
+    },
+    {
+      "id": "npl_ratio",
+      "name": "Non-Performing Loan (NPL) Ratio",
+      "category": "risk",
+      "definition": "The share of the loan book that has stopped performing, meaning borrowers are seriously behind or in default. It is the primary gauge of asset quality.",
+      "formula": "Non-Performing Loans / Total Gross Loans",
+      "numerator": "Non-performing loans: loans 90+ days past due plus loans on non-accrual status.",
+      "denominator": "Total gross loans (before deducting the allowance for loan losses).",
+      "gotchas": [
+        "'Non-performing' definitions vary: some include 90+ days past due AND non-accrual, some add restructured (TDR) loans; state the definition, because it moves the ratio.",
+        "Use gross loans (before allowance) in the denominator for the standard ratio; using net loans slightly inflates it."
+      ],
+      "benchmark": "Below 1% is healthy for US banks in a normal cycle; above 3% to 5% signals stress.",
+      "source": "FDIC; Basel asset-quality reporting; IMF Financial Soundness Indicators.",
+      "sql": "SELECT nonperforming_loans / gross_loans AS npl_ratio FROM period_financials;"
+    },
+    {
+      "id": "nco_ratio",
+      "name": "Net Charge-Off (NCO) Ratio",
+      "category": "risk",
+      "definition": "The portion of loans the bank actually wrote off as uncollectible during the period, net of any recoveries, measured against the book. It shows realized (not just flagged) credit losses.",
+      "formula": "(Gross Charge-Offs - Recoveries) / Average Total Loans",
+      "numerator": "Net charge-offs = loans written off as uncollectible minus amounts later recovered, for the period.",
+      "denominator": "Average total loans outstanding over the period.",
+      "gotchas": [
+        "Annualize quarterly NCOs (multiply by 4 or use days/365) before comparing to annual benchmarks, or the rate looks a quarter of its true size.",
+        "NCOs are a lagging, realized measure; the NPL ratio and provisioning lead it. A low NCO ratio with a rising NPL ratio is an early warning."
+      ],
+      "benchmark": "Well under 1% in benign periods; consumer and card portfolios run structurally higher than commercial.",
+      "source": "FDIC Quarterly Banking Profile.",
+      "sql": "SELECT (gross_chargeoffs - recoveries) / ((total_loans_begin + total_loans_end) / 2.0) AS nco_ratio FROM period_financials;"
+    },
+    {
+      "id": "allowance_ratio",
+      "name": "Allowance for Loan Losses to Total Loans (Reserve Ratio)",
+      "category": "risk",
+      "definition": "How much of the loan book the bank has already set aside reserves against expected losses. It shows the cushion built to absorb future defaults.",
+      "formula": "Allowance for Loan and Lease Losses / Total Gross Loans",
+      "numerator": "The allowance for loan and lease losses (ALLL, or ACL under CECL) on the balance sheet.",
+      "denominator": "Total gross loans.",
+      "gotchas": [
+        "Under the CECL accounting standard (effective from 2020 for many banks) the allowance is forward-looking (lifetime expected loss), so pre-CECL and post-CECL levels are not directly comparable.",
+        "A rising reserve ratio can mean either deteriorating credit or conservatism; read it with the NPL trend."
+      ],
+      "benchmark": "Commonly 1% to 2% of loans; jumped at CECL adoption and during stress periods.",
+      "source": "FASB CECL (ASC 326); FDIC.",
+      "sql": "SELECT allowance_for_loan_losses / gross_loans AS reserve_ratio FROM period_financials;"
+    },
+    {
+      "id": "coverage_ratio",
+      "name": "Provision Coverage Ratio (Allowance to NPLs)",
+      "category": "risk",
+      "definition": "How fully the reserves the bank has set aside cover the loans that have already gone bad. Above 100% means reserves exceed current non-performing loans.",
+      "formula": "Allowance for Loan Losses / Non-Performing Loans",
+      "numerator": "Allowance for loan and lease losses.",
+      "denominator": "Non-performing loans.",
+      "gotchas": [
+        "Do not confuse with the 'interest coverage ratio' used for corporate borrowers; this is a bank asset-quality metric, same words, different meaning.",
+        "A coverage ratio can look comfortable while collateral values are falling; it does not account for recovery value on secured loans."
+      ],
+      "benchmark": "Often 100% or higher is viewed as prudent; well below 100% raises under-reserving concerns.",
+      "source": "Basel; IMF Financial Soundness Indicators.",
+      "sql": "SELECT allowance_for_loan_losses / nonperforming_loans AS coverage_ratio FROM period_financials;"
+    },
+    {
+      "id": "provision_ratio",
+      "name": "Loan Loss Provision Ratio",
+      "category": "risk",
+      "definition": "The expense the bank booked this period to build its loss reserves, measured against the loan book. It is the income-statement cost of credit risk.",
+      "formula": "Provision for Loan Losses / Average Total Loans",
+      "numerator": "Provision for loan and lease losses expensed on the income statement for the period.",
+      "denominator": "Average total loans.",
+      "gotchas": [
+        "The provision (income-statement expense) is different from the allowance (balance-sheet stock); the provision flows into the allowance. Do not use them interchangeably.",
+        "Provisions can be negative (a release) in improving credit conditions, which boosts earnings; flag releases so a good quarter is not mistaken for core operating strength."
+      ],
+      "benchmark": "Cyclical; spikes in downturns and can go negative in recoveries.",
+      "source": "FDIC; bank income-statement disclosures.",
+      "sql": "SELECT provision_for_loan_losses / ((total_loans_begin + total_loans_end) / 2.0) AS provision_ratio FROM period_financials;"
+    },
+    {
+      "id": "cet1_ratio",
+      "name": "Common Equity Tier 1 (CET1) Ratio",
+      "category": "capital",
+      "definition": "The bank's highest-quality capital (common equity) measured against its risk-weighted assets. It is the central regulatory solvency metric under Basel III.",
+      "formula": "Common Equity Tier 1 Capital / Risk-Weighted Assets",
+      "numerator": "CET1 capital: common shares, retained earnings, and disclosed reserves, less regulatory deductions (goodwill, certain deferred tax assets).",
+      "denominator": "Risk-weighted assets (RWA): assets weighted by regulatory risk category.",
+      "gotchas": [
+        "The denominator is risk-WEIGHTED assets, not total assets; a portfolio of low-risk-weight assets (like government bonds) produces a much smaller RWA base and a higher ratio.",
+        "Regulatory minimums include buffers: the 4.5% minimum plus a 2.5% conservation buffer plus any GSIB/countercyclical buffers, so the effective required level is higher than 4.5%."
+      ],
+      "benchmark": "4.5% regulatory minimum, but with buffers most large banks target and hold roughly 11% to 13%+.",
+      "source": "Basel III framework; US Federal Reserve capital rules.",
+      "sql": "SELECT cet1_capital / risk_weighted_assets AS cet1_ratio FROM regulatory_capital;"
+    },
+    {
+      "id": "tier1_ratio",
+      "name": "Tier 1 Capital Ratio",
+      "category": "capital",
+      "definition": "The bank's core capital, which is CET1 plus additional Tier 1 instruments, against risk-weighted assets. It measures going-concern loss-absorbing capacity.",
+      "formula": "Tier 1 Capital / Risk-Weighted Assets",
+      "numerator": "Tier 1 capital = CET1 capital plus Additional Tier 1 (AT1) instruments such as qualifying perpetual preferred stock.",
+      "denominator": "Risk-weighted assets.",
+      "gotchas": [
+        "Tier 1 is always greater than or equal to CET1 because it adds AT1; if a bank has no AT1, the two ratios are identical.",
+        "As with CET1, the denominator is risk-weighted, not total, assets."
+      ],
+      "benchmark": "6% regulatory minimum before buffers; large banks commonly hold 12%+.",
+      "source": "Basel III; US Federal Reserve capital rules.",
+      "sql": "SELECT tier1_capital / risk_weighted_assets AS tier1_ratio FROM regulatory_capital;"
+    },
+    {
+      "id": "total_capital_ratio",
+      "name": "Total Capital Ratio (Capital Adequacy Ratio, CAR)",
+      "category": "capital",
+      "definition": "All qualifying regulatory capital, Tier 1 plus Tier 2, against risk-weighted assets. It is the broadest Basel solvency ratio.",
+      "formula": "(Tier 1 Capital + Tier 2 Capital) / Risk-Weighted Assets",
+      "numerator": "Total regulatory capital = Tier 1 plus Tier 2 (subordinated debt, qualifying loan-loss reserves).",
+      "denominator": "Risk-weighted assets.",
+      "gotchas": [
+        "'Capital Adequacy Ratio' (CAR) and 'Total Capital Ratio' are the same thing; regional regulators use different names.",
+        "Tier 2 includes items with limited loss-absorbing quality; a bank meeting the total ratio purely on Tier 2 is weaker than one meeting it on CET1."
+      ],
+      "benchmark": "8% regulatory minimum before buffers; with the conservation buffer the effective floor is 10.5%.",
+      "source": "Basel III; US Federal Reserve capital rules.",
+      "sql": "SELECT (tier1_capital + tier2_capital) / risk_weighted_assets AS total_capital_ratio FROM regulatory_capital;"
+    },
+    {
+      "id": "leverage_ratio",
+      "name": "Tier 1 Leverage Ratio",
+      "category": "capital",
+      "definition": "Core capital measured against total (unweighted) assets. It is a backstop to the risk-weighted ratios, catching banks that look well-capitalized only because their assets carry low risk weights.",
+      "formula": "Tier 1 Capital / Average Total Consolidated Assets",
+      "numerator": "Tier 1 capital.",
+      "denominator": "Average total consolidated (unweighted) assets, with limited regulatory adjustments.",
+      "gotchas": [
+        "This ratio deliberately does NOT risk-weight the denominator; that is the whole point, so do not 'fix' it by using RWA.",
+        "The US supplementary leverage ratio (SLR) for the largest banks adds off-balance-sheet exposures to the denominator and has its own higher minimum; do not conflate the basic leverage ratio with the SLR."
+      ],
+      "benchmark": "4% minimum for most US banks (5% to be 'well capitalized'); the SLR minimum for GSIBs is higher.",
+      "source": "US Federal Reserve; Basel III leverage framework.",
+      "sql": "SELECT tier1_capital / average_total_assets AS leverage_ratio FROM regulatory_capital;"
+    },
+    {
+      "id": "ldr",
+      "name": "Loan-to-Deposit Ratio (LDR)",
+      "category": "liquidity",
+      "definition": "How much of the bank's deposit funding has been lent out. It is a quick read on liquidity and on how aggressively the bank is deploying its funding base.",
+      "formula": "Total Loans / Total Deposits",
+      "numerator": "Total loans outstanding.",
+      "denominator": "Total deposits.",
+      "gotchas": [
+        "Too high (well above 100%) means the bank relies on non-deposit (wholesale) funding and has less liquidity headroom; too low means it is not deploying deposits into higher-yielding loans. There is a healthy middle, not a 'higher is better' direction.",
+        "Period-end snapshots can be window-dressed; an average-balance LDR is more honest for trend analysis."
+      ],
+      "benchmark": "Commonly 80% to 90% is viewed as a healthy balance; consistently above 100% warrants a funding look.",
+      "source": "FDIC; bank liquidity management.",
+      "sql": "SELECT total_loans / total_deposits AS ldr FROM period_financials;"
+    },
+    {
+      "id": "lcr",
+      "name": "Liquidity Coverage Ratio (LCR)",
+      "category": "liquidity",
+      "definition": "Whether the bank holds enough high-quality liquid assets to survive a 30-day severe stress scenario. It is a Basel III short-term liquidity requirement.",
+      "formula": "High-Quality Liquid Assets / Total Net Cash Outflows over 30 Days",
+      "numerator": "Stock of High-Quality Liquid Assets (HQLA): cash, central-bank reserves, and high-grade government securities, after regulatory haircuts.",
+      "denominator": "Total net cash outflows over a 30-day stress period (stressed outflows minus capped inflows), per the regulatory calculation.",
+      "gotchas": [
+        "The denominator is a prescribed STRESS-scenario outflow, not actual expected outflows; you cannot compute it from ordinary cash-flow forecasts.",
+        "HQLA is tiered (Level 1, Level 2A, Level 2B) with caps and haircuts; adding up raw liquid assets overstates the numerator."
+      ],
+      "benchmark": "100% regulatory minimum; large banks typically hold a buffer above it.",
+      "source": "Basel III LCR standard; US LCR rule.",
+      "sql": "SELECT hqla / net_cash_outflows_30d AS lcr FROM regulatory_liquidity;"
+    },
+    {
+      "id": "nsfr",
+      "name": "Net Stable Funding Ratio (NSFR)",
+      "category": "liquidity",
+      "definition": "Whether the bank funds its longer-term assets with sufficiently stable funding over a one-year horizon. It is the Basel III structural (long-term) liquidity requirement, complementing the 30-day LCR.",
+      "formula": "Available Stable Funding / Required Stable Funding",
+      "numerator": "Available Stable Funding (ASF): capital and liabilities weighted by how stable they are over one year (equity and long-term deposits weighted high).",
+      "denominator": "Required Stable Funding (RSF): assets and off-balance-sheet exposures weighted by how much stable funding they need over one year (illiquid long-term assets weighted high).",
+      "gotchas": [
+        "Both sides use regulatory weightings; you cannot compute NSFR from raw balance-sheet totals.",
+        "NSFR (one year, structural) and LCR (30 days, acute stress) answer different questions; a bank can pass one and strain the other."
+      ],
+      "benchmark": "100% regulatory minimum.",
+      "source": "Basel III NSFR standard; US NSFR rule.",
+      "sql": "SELECT available_stable_funding / required_stable_funding AS nsfr FROM regulatory_liquidity;"
+    },
+    {
+      "id": "cash_deposit_ratio",
+      "name": "Cash-to-Deposit Ratio",
+      "category": "liquidity",
+      "definition": "The share of deposits the bank holds as cash and cash equivalents. It is a simple, unregulated liquidity gauge often used alongside the regulatory ratios.",
+      "formula": "Cash and Cash Equivalents / Total Deposits",
+      "numerator": "Cash, balances at the central bank, and cash equivalents.",
+      "denominator": "Total deposits.",
+      "gotchas": [
+        "Different from the regulatory reserve requirement; this is a management ratio, not a compliance one.",
+        "Very high cash-to-deposit ratios drag on profitability (cash earns little), so 'higher' is not automatically 'safer' from an earnings view."
+      ],
+      "benchmark": "No fixed standard; interpreted relative to the bank's own history and peers.",
+      "source": "Standard bank liquidity analysis.",
+      "sql": "SELECT cash_and_equivalents / total_deposits AS cash_deposit_ratio FROM period_financials;"
+    },
+    {
+      "id": "casa_ratio",
+      "name": "CASA Ratio",
+      "category": "liquidity",
+      "definition": "The share of deposits held in low-cost current (checking) and savings accounts rather than in higher-cost term deposits. A higher CASA ratio means cheaper, stickier funding.",
+      "formula": "(Current Account + Savings Account Deposits) / Total Deposits",
+      "numerator": "Balances in current (checking) and savings accounts.",
+      "denominator": "Total deposits (including term/time deposits).",
+      "gotchas": [
+        "CASA is common terminology in Asian and European banking; US call reports use 'non-interest-bearing and savings' rather than 'CASA', but the concept maps across.",
+        "A high CASA ratio lowers cost of funds but can be more rate-sensitive to outflows when rates rise and customers chase yield."
+      ],
+      "benchmark": "Roughly 40%+ is often considered strong; higher CASA supports a lower cost of funds.",
+      "source": "Bank funding analysis; common in international banking disclosures.",
+      "sql": "SELECT (current_account_deposits + savings_deposits) / total_deposits AS casa_ratio FROM period_financials;"
+    },
+    {
+      "id": "deposit_growth",
+      "name": "Deposit Growth Rate",
+      "category": "growth",
+      "definition": "How fast the bank's deposit base is expanding or shrinking. Deposits are the cheapest funding, so growth here is a core franchise-health signal.",
+      "formula": "(Deposits End - Deposits Begin) / Deposits Begin",
+      "numerator": "Change in total deposits over the period.",
+      "denominator": "Total deposits at the start of the period.",
+      "gotchas": [
+        "Distinguish organic growth from growth via acquisition or brokered/hot deposits; the latter is less sticky and can reverse quickly.",
+        "Annualize or state the period explicitly; a quarterly growth rate compared to an annual one is misleading."
+      ],
+      "benchmark": "Context-dependent; compare to loan growth and to peer/market deposit trends.",
+      "source": "Bank financial analysis; FDIC.",
+      "sql": "SELECT (deposits_end - deposits_begin) / deposits_begin AS deposit_growth_rate FROM period_financials;"
+    },
+    {
+      "id": "loan_growth",
+      "name": "Loan Growth Rate",
+      "category": "growth",
+      "definition": "How fast the loan book is expanding. It drives future interest income but, if too fast, can signal loosening credit standards.",
+      "formula": "(Loans End - Loans Begin) / Loans Begin",
+      "numerator": "Change in total loans over the period.",
+      "denominator": "Total loans at the start of the period.",
+      "gotchas": [
+        "Rapid loan growth well above peers is a classic precursor to future credit losses; read it with underwriting and NPL trends, not in isolation.",
+        "Separate organic origination from portfolio purchases and FX-translation effects for multinational books."
+      ],
+      "benchmark": "Should be sustainable relative to deposit growth and capital; outsized growth is a risk flag, not a pure positive.",
+      "source": "Bank financial analysis; supervisory guidance on concentration and growth.",
+      "sql": "SELECT (loans_end - loans_begin) / loans_begin AS loan_growth_rate FROM period_financials;"
+    },
+    {
+      "id": "cac",
+      "name": "Customer Acquisition Cost (CAC)",
+      "category": "growth",
+      "definition": "What it costs, on average, to bring in one new customer. It anchors the economics of every growth and marketing decision.",
+      "formula": "Total Acquisition Spend / Number of New Customers Acquired",
+      "numerator": "Sales and marketing spend attributable to acquisition for the period (campaigns, incentives, referral bonuses, acquisition staff).",
+      "denominator": "Number of newly acquired customers in the same period.",
+      "gotchas": [
+        "Match the numerator and denominator to the same cohort and time window; counting this quarter's spend against last quarter's customers understates CAC.",
+        "Decide up front what counts as 'acquisition' spend (brand advertising is often excluded); an inconsistent numerator makes CAC uncomparable over time."
+      ],
+      "benchmark": "Judge against customer lifetime value (LTV); a healthy LTV-to-CAC ratio is often cited around 3:1 or better.",
+      "source": "Standard unit-economics analysis; SaaS/fintech growth metrics.",
+      "sql": "SELECT acquisition_spend / NULLIF(new_customers, 0) AS cac FROM period_marketing;"
+    },
+    {
+      "id": "arpu",
+      "name": "Average Revenue per Customer (ARPU)",
+      "category": "growth",
+      "definition": "How much revenue the bank earns per customer on average. It measures monetization depth and cross-sell success.",
+      "formula": "Total Revenue / Average Number of Customers",
+      "numerator": "Total revenue for the period (interest plus fee income attributable to the customer base).",
+      "denominator": "Average number of active customers over the period.",
+      "gotchas": [
+        "Define 'customer' consistently (accounts versus households versus unique individuals); one household with five accounts can be counted five ways.",
+        "A rising ARPU driven by shedding low-value customers is different from ARPU growth via cross-sell; segment before celebrating."
+      ],
+      "benchmark": "Bank- and segment-specific; track the trend and by customer segment.",
+      "source": "Standard customer-economics analysis.",
+      "sql": "SELECT total_revenue / avg_active_customers AS arpu FROM period_financials;"
+    },
+    {
+      "id": "attrition_rate",
+      "name": "Customer Attrition Rate (Churn)",
+      "category": "growth",
+      "definition": "The share of customers who leave the bank over a period. High attrition erodes the deposit franchise and forces more expensive acquisition to stand still.",
+      "formula": "Customers Lost during Period / Customers at Start of Period",
+      "numerator": "Number of customers who closed all relationships (or the relevant product) during the period.",
+      "denominator": "Number of customers at the start of the period.",
+      "gotchas": [
+        "Define churn precisely: total relationship exit versus single-product closure versus dormancy; each gives a very different rate.",
+        "Gross attrition (customers lost) differs from net attrition (lost minus reactivated); state which one you are reporting."
+      ],
+      "benchmark": "Lower is better; retail banking primary-account attrition is often in the mid-single-digit percent range annually, but it varies widely.",
+      "source": "Standard retention analysis; retail banking benchmarks.",
+      "sql": "SELECT customers_lost / customers_begin AS attrition_rate FROM period_customers;"
+    }
+  ]
+}

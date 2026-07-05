@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Banking &amp; Financial Services KPI Library</title>
+<meta name="description" content="A free, formula-precise reference for banking and financial-services KPIs. Plain-English definition, exact formula, numerator and denominator sources, gotchas, and typical ranges for each metric. Runs in your browser, no sign-up.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <h1>Banking &amp; Financial Services KPI Library</h1>
+    <p class="tagline">The banking KPI cheat-sheet with the parts the free lists skip: exact formulas, numerator and denominator sources, the gotchas that trip up new analysts, and a typical range for each metric. Free, no sign-up, nothing leaves your browser.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="controls">
+    <input id="search" type="search" class="search" placeholder="Search metrics, e.g. net interest margin, efficiency, CET1" autocomplete="off" aria-label="Search KPIs">
+    <div id="filters" class="filters" role="group" aria-label="Filter by category"></div>
+    <p id="resultCount" class="result-count" role="status"></p>
+  </div>
+
+  <div id="results" class="results"></div>
+
+  <div id="emptyState" class="empty-state" hidden>
+    <p>No metrics match that search. Try a shorter term, or clear the category filter.</p>
+  </div>
+
+  <p id="copyStatus" class="copy-status" role="status"></p>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>Free and open source. Regulatory ratios follow Basel III and US call-report conventions; profitability and customer metrics vary by institution, so confirm against your bank's own definitions before reporting. See the README for which metrics are industry-standard versus institution-specific.</p>
+  </div>
+</footer>
+
+<script src="kpi.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
